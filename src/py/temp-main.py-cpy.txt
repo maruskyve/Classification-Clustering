@@ -1,0 +1,152 @@
+import numpy as np
+import src.reader as reader
+
+"""
+Created on Thu March 03 17:09:39 2022
+@ Author: Ma'ruf Nurrochman
+@ Description:
+    Reusable K-Nearest Neighbors (KNN) model for predicting a neighbors data
+    with given test data using the value of K and the distance metrics from user
+@ Note:
+    Recommended to use odd number for K-value
+@ Dependency: Numpy
+"""
+# df = np.array([['x', 'y', 'kategori'],
+#                [7, 6, 'bad'],
+#                [6, 6, 'bad'],
+#                [6, 5, 'bad'],
+#                [1, 3, 'good'],
+#                [2, 4, 'good'],
+#                [2, 2, 'good']])
+# test_data = np.array([3, 5], np.float32)
+# Iris dataset
+df = reader.csv_reader(filepath='../assets/dataset/iris.csv',
+                       delimiter=',')
+df = np.transpose(np.transpose(df)[1: len(df)])  # 1st column reduction
+test_data = np.array([7.7, 3.0, 6.1, 2.3], np.float32)
+# df = reader.csv_reader(filepath='../assets/dataset/water_potability.csv',
+#                        delimiter=',')
+# test_data = np.array(
+#     [6.217579612346267, 189.3422246954596, 15155.548989159242, 6.819438078276601, 306.8925996433463, 297.7636847142188,
+#      11.964913746247134, 81.38675264918083, 3.4900020136542866], np.float32)
+
+# H-param
+k = 3
+
+
+class KNearestNeighbors:
+    def __init__(self,
+                 data: np.array or list,
+                 test_data: np.array or list,
+                 k_val: int or np.int0,
+                 distance_metrics: str or np.str0):
+        self.data = data  # User given information
+        self.test_data = test_data  # User given information
+        self.neighbors = np.array  # Neighbors data points
+        self.target = np.array
+        self.klass = np.array
+        self.dists = np.array
+        self.nearest_dists = np.array
+        self.nearest_neighbors = np.array
+        self.k = k_val  # User given information
+        self.distance_metrics = distance_metrics  # User given information
+        self.prediction = np.str0
+        self.__process_learning()
+
+    def __data_preps(self):  # Preparing data
+        print(' - Preparing data')
+
+        self.data = np.array(self.data) if type(self.data).__name__ == 'list' else self.data
+        self.neighbors = np.array(self.neighbors) if type(self.neighbors) == 'list' else self.neighbors
+        self.neighbors = np.array(np.transpose(np.transpose(self.data[1:len(self.data)])[0:len(self.data[0]) - 1]),
+                                  object)
+
+        for i in range(len(self.neighbors)):  # Fill 0 to null detected data
+            for j in range(len(self.neighbors[i])):
+                self.neighbors[i, j] = 0 if not self.neighbors[i, j] else np.float32(self.neighbors[i, j])
+
+        self.target = np.array(np.transpose(self.data)[len(df[0]) - 1], np.str0)[1: len(self.data)]
+        self.klass = np.zeros(0, object)
+        self.dists = np.zeros(len(self.neighbors))
+        self.nearest_dists = np.zeros(self.k, object)
+        self.nearest_neighbors = np.zeros(self.k, object)
+
+        def find_class_label():  # Detecting data class label/class extraction
+            for x in self.target:  # Iterating target/class label set
+                if x not in self.klass:
+                    self.klass = np.append(self.klass, x)
+
+        find_class_label()
+
+    def __compute_distance(self):  # Menghitung jarak antara data input dengan data test
+        print(' - Compute distance')
+
+        if self.distance_metrics == 'euclidean':
+            for i in range(len(self.neighbors)):
+                for j in range(len(self.neighbors[i])):
+                    self.dists[i] += np.power(self.test_data[j] - self.neighbors[i, j], 2)
+                self.dists[i] = np.sqrt(self.dists[i])
+
+    def __find_nearest_neighbors(self, priority: int):  # Menentukan tetangga terdekat berdasarkan nilai k
+        print(' - Search for nearest neighbors')
+
+        dummy_dists = np.copy(self.dists)
+
+        for i in range(self.k):
+            min_index = np.where(dummy_dists == min(dummy_dists))[priority]  # Mencari index dari tetangga terdekat
+            self.nearest_dists[i] = min(dummy_dists)
+            self.nearest_neighbors[i] = self.target[min_index]
+            # Mengubah nilai tetangga terdekat dengan penambahan nilai pada dummy distance
+            dummy_dists[min_index] = max(dummy_dists) + min(dummy_dists)
+
+    def __summary(self, exec_time: float):  # Summarize given information and result
+        print(' - Summarizing result')
+
+        klass_poll = np.zeros(len(self.klass))
+
+        for x in self.nearest_neighbors:
+            klass_index = np.where(self.klass == x)
+            klass_poll[klass_index] += 1
+
+        self.prediction = self.klass[np.argmax(klass_poll)]
+        summary = f"\n### Summary ###" \
+                  f"\n> Data total: {len(self.neighbors)}" \
+                  f"\n> Detected class, (total: {len(self.klass)}):"
+
+        for x in self.klass:
+            summary += f'\n   - {x}'
+
+        summary += f"\n> Test data, (total: {len(self.test_data)}): "
+
+        for i in range(len(self.test_data)):
+            summary += f'\n   - x{i + 1} = {self.test_data[i]}'
+
+        summary += f"\n> K-value: {self.k}" \
+                   f"\n> Distance metrics: {self.distance_metrics}" \
+                   f"\n> Time spent: {round(exec_time, 7)} seconds" \
+                   f"\n> Prediction: {self.prediction}" \
+                   f"\n### Summary ###"
+        print(summary)
+
+    def __process_learning(self):  # Processing learning step-by-step
+        print(f"Processing to find result . . .")
+        import time
+
+        start = time.time()
+        self.__data_preps()
+        # print(f'data: {self.data}'
+        #       f'\nneighbors: {self.neighbors}'
+        #       f'\ntest_data: {self.test_data}'
+        #       f'\ntarget: {self.target}'
+        #       f'\nclass: {self.klass}')
+        self.__compute_distance()
+        self.__find_nearest_neighbors(priority=0)
+        self.__summary(exec_time=(time.time() - start))
+        return self.prediction
+        # print(f'dist: {self.dists}'
+        #       f'\nnearest neighbors: {self.nearest_neighbors}')
+        # print(100*(sum(self.nearest_dists)/len(self.nearest_dists))/(sum(self.dists)/len(self.dists)))
+
+
+model = KNearestNeighbors(data=df, test_data=test_data, k_val=k, distance_metrics='euclidean')
+print('\n', model.dists)
